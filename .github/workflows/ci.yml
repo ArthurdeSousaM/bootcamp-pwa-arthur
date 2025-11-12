@@ -23,7 +23,7 @@ jobs:
           cd apps/api && npm ci
           cd ../web && npm ci
 
-      # Testes unitários (API) — passa mesmo sem testes reais
+      # Testes unitários da API (passa mesmo com teste dummy)
       - name: Unit tests (API)
         run: |
           cd apps/api && npm test --if-present
@@ -33,20 +33,21 @@ jobs:
         run: |
           cd apps/web && npm run build
 
-      # E2E com Playwright usando docker-compose para subir API + Web locais
+      # Playwright (instala browsers)
       - name: Install Playwright browsers
         run: |
           cd apps/web
           npx playwright install --with-deps
 
-      - name: Start services with docker compose
+      # Servir o build estaticamente e aguardar porta abrir
+      - name: Serve built app on :8080
         run: |
-          docker compose up -d --build
-          # aguarda web responder
+          npx -y http-server apps/web/dist -p 8080 &
           for i in {1..60}; do
             curl -fsS http://localhost:8080 && break || sleep 2
           done
 
+      # E2E
       - name: Run E2E tests (Playwright)
         run: |
           cd apps/web && npx playwright test
@@ -54,12 +55,13 @@ jobs:
           E2E_BASE_URL: "http://localhost:8080"
         if: always()
 
-      # Artefatos (para entregar ao professor)
+      # Artefatos para entrega
       - name: Upload artifact: web-dist
         uses: actions/upload-artifact@v4
         with:
           name: web-dist
           path: apps/web/dist
+
       - name: Upload artifact: playwright-report
         uses: actions/upload-artifact@v4
         with:
@@ -93,3 +95,4 @@ jobs:
 
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
+
