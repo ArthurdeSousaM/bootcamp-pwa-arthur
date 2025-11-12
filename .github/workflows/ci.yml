@@ -17,21 +17,59 @@ jobs:
         with:
           node-version: '20'
 
+      # Descobrir automaticamente onde está a pasta do web
+      - name: Detect web directory
+        id: detect
+        run: |
+          set -e
+          echo "Mostrando árvore até 3 níveis para conferência:"
+          find . -maxdepth 3 -type d | sort
+
+          if [ -d "apps/web" ]; then
+            echo "WEB_DIR=apps/web" >> $GITHUB_ENV
+          elif [ -d "monorepo-pwa-full/apps/web" ]; then
+            echo "WEB_DIR=monorepo-pwa-full/apps/web" >> $GITHUB_ENV
+          elif [ -d "web" ]; then
+            echo "WEB_DIR=web" >> $GITHUB_ENV
+          else
+            echo "ERRO: não encontrei a pasta do web (apps/web, monorepo-pwa-full/apps/web, ou web)." >&2
+            exit 1
+          fi
+
+          if [ -d "apps/api" ]; then
+            echo "API_DIR=apps/api" >> $GITHUB_ENV
+          elif [ -d "monorepo-pwa-full/apps/api" ]; then
+            echo "API_DIR=monorepo-pwa-full/apps/api" >> $GITHUB_ENV
+          elif [ -d "api" ]; then
+            echo "API_DIR=api" >> $GITHUB_ENV
+          else
+            # API é opcional p/ build do web; só avisamos.
+            echo "API_DIR=" >> $GITHUB_ENV
+            echo "Aviso: pasta da API não encontrada (ok para build do web)."
+          fi
+
+          echo "WEB_DIR detectado: ${WEB_DIR}"
+          echo "API_DIR detectado: ${API_DIR}"
+
       - name: Install deps (web)
         run: |
-          cd apps/web
+          cd "${WEB_DIR}"
           npm ci
+        env:
+          WEB_DIR: ${{ env.WEB_DIR }}
 
       - name: Build web
         run: |
-          cd apps/web
+          cd "${WEB_DIR}"
           npm run build
+        env:
+          WEB_DIR: ${{ env.WEB_DIR }}
 
       - name: Upload artifact (web-dist)
         uses: actions/upload-artifact@v4
         with:
           name: web-dist
-          path: apps/web/dist
+          path: ${{ env.WEB_DIR }}/dist
 
   deploy:
     needs: build-and-deploy
