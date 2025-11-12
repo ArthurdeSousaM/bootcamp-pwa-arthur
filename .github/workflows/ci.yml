@@ -17,12 +17,11 @@ jobs:
         with:
           node-version: '20'
 
-      # Descobrir automaticamente onde está a pasta do web
+      # Descobre automaticamente onde está a pasta do web
       - name: Detect web directory
-        id: detect
         run: |
           set -e
-          echo "Mostrando árvore até 3 níveis para conferência:"
+          echo "Tree (até 3 níveis):"
           find . -maxdepth 3 -type d | sort
 
           if [ -d "apps/web" ]; then
@@ -32,35 +31,27 @@ jobs:
           elif [ -d "web" ]; then
             echo "WEB_DIR=web" >> $GITHUB_ENV
           else
-            echo "ERRO: não encontrei a pasta do web (apps/web, monorepo-pwa-full/apps/web, ou web)." >&2
+            echo "ERRO: não encontrei a pasta do web (apps/web, monorepo-pwa-full/apps/web ou web)." >&2
             exit 1
           fi
+          echo "WEB_DIR detectado: $WEB_DIR"
 
-          if [ -d "apps/api" ]; then
-            echo "API_DIR=apps/api" >> $GITHUB_ENV
-          elif [ -d "monorepo-pwa-full/apps/api" ]; then
-            echo "API_DIR=monorepo-pwa-full/apps/api" >> $GITHUB_ENV
-          elif [ -d "api" ]; then
-            echo "API_DIR=api" >> $GITHUB_ENV
-          else
-            # API é opcional p/ build do web; só avisamos.
-            echo "API_DIR=" >> $GITHUB_ENV
-            echo "Aviso: pasta da API não encontrada (ok para build do web)."
-          fi
-
-          echo "WEB_DIR detectado: ${WEB_DIR}"
-          echo "API_DIR detectado: ${API_DIR}"
-
-      - name: Install deps (web)
+      - name: Install deps (web) — usa ci se houver lock, senão install
         run: |
-          cd "${WEB_DIR}"
-          npm ci
+          cd "$WEB_DIR"
+          if [ -f package-lock.json ]; then
+            echo "Usando npm ci (lockfile encontrado)"
+            npm ci
+          else
+            echo "Sem package-lock.json — usando npm install"
+            npm install --no-audit --no-fund
+          fi
         env:
           WEB_DIR: ${{ env.WEB_DIR }}
 
       - name: Build web
         run: |
-          cd "${WEB_DIR}"
+          cd "$WEB_DIR"
           npm run build
         env:
           WEB_DIR: ${{ env.WEB_DIR }}
@@ -98,3 +89,4 @@ jobs:
 
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
+
